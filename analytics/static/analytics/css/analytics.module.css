@@ -1,0 +1,8 @@
+/* Analytics-specific styling. Shared rules live in core/static/core/css/base.module.css. */
+
+/* Cold numbers show a date instead of a percentage — give it slightly different weight */
+#analyticsColdList .hc-val {
+  color: var(--gray-3);
+  font-weight: 700;
+  letter-spacing: -.02em;
+}

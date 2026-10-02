@@ -1,0 +1,1 @@
+# core has no page of its own; it holds shared templates, static assets and helpers.

@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Powpredict Intelligence</title>
+<link rel="icon" type="image/png" href="{% static 'powpredict.png' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="{% static 'core/css/base.module.css' %}">
+{% block page_css %}{% endblock %}
+</head>
+<body>
+
+<div class="app">
+  {% include "core/partials/_sidebar.html" %}
+
+  <div class="main">
+    {% include "core/partials/_topbar.html" %}
+
+    <main class="content">
+      {% block content %}{% endblock %}
+      {% include "core/partials/_footer.html" %}
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="{% static 'core/js/games.js' %}"></script>
+<script src="{% static 'core/js/engine.js' %}"></script>
+<script src="{% static 'core/js/ui.js' %}"></script>
+<script src="{% static 'core/js/app.js' %}"></script>
+</body>
+</html>

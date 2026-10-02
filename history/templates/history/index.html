@@ -1,0 +1,30 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'history/css/history.module.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page active" id="page-history">
+  <div class="page-head">
+    <div>
+      <h1>Your history. <span class="thin">Every set, saved.</span></h1>
+      <p class="page-sub">Review past predictions, confidence scores and timestamps stored locally on your device.</p>
+    </div>
+    <div class="head-cta">
+      <button class="btn-ghost-w" onclick="clearHistory()">Clear all</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Recent Predictions
+      </div>
+    </div>
+    <div class="hist-body" id="histPage" style="max-height:none"></div>
+  </div>
+</section>
+{% endblock %}

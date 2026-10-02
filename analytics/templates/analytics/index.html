@@ -1,0 +1,147 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'analytics/css/analytics.module.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page active" id="page-analytics">
+  <div class="page-head">
+    <div>
+      <h1>Hot, cold and everything between.</h1>
+      <p class="page-sub">Frequency trends, overdue numbers and statistical distribution computed live from the last {{ window }} draws of each game.</p>
+    </div>
+  </div>
+
+  <div class="games-sticky" style="position:static;background:none;padding:0 0 4px">
+    <div class="games no-scrollbar" id="analyticsGameSelector">
+      {% for key, label in games.items %}
+        <button class="game {% if key == game %}active{% endif %}" data-game="{{ key }}">
+          <span class="gd"></span>{{ label }}
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="duo">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2c1 4-3 5-3 9a3 3 0 0 0 6 0c0-1.5-.8-2.5-.8-2.5S17 10 17 14a5 5 0 0 1-10 0c0-6 5-7 5-12z"/></svg>Hot Numbers</div>
+      </div>
+      <div class="card-hint">Most frequent over the last {{ window }} draws of <b id="hotLabel">{{ game_label }}</b></div>
+      <div class="hc-body" id="analyticsHotList">
+        {% for row in hot %}
+          <div class="hc-row">
+            <div class="hc-num hot">{{ row.number }}</div>
+            <div class="hc-bar"><div class="hc-fill hot" style="width: {{ row.pct }}%"></div></div>
+            <div class="hc-val">{{ row.pct }}%</div>
+          </div>
+        {% empty %}
+          <div class="empty">No draws in database yet. Run: python manage.py scrape_results --all</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2v20M4 6l16 12M20 6L4 18"/></svg>Cold Numbers</div>
+      </div>
+      <div class="card-hint">Least frequent over the last {{ window }} draws — with days since last drawn</div>
+      <div class="hc-body" id="analyticsColdList">
+        {% for row in cold %}
+          <div class="hc-row">
+            <div class="hc-num cold">{{ row.number }}</div>
+            <div class="hc-bar"><div class="hc-fill cold" style="width: {{ row.pct }}%"></div></div>
+            <div class="hc-val">{% if row.days_ago is not None %}{{ row.days_ago }}d ago{% else %}never{% endif %}</div>
+          </div>
+        {% empty %}
+          <div class="empty">No draws in database yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M4 19V5M4 15l5-4 4 3 7-6"/></svg>
+        Frequency Distribution
+      </div>
+    </div>
+    <div class="card-hint">Top 8 hottest balls for <b id="freqLabel">{{ game_label }}</b> over the last {{ window }} draws</div>
+    <div class="hc-body" id="analyticsFreqList">
+      {% for row in freq %}
+        <div class="hc-row">
+          <div class="hc-num hot">{{ row.number }}</div>
+          <div class="hc-bar"><div class="hc-fill hot" style="width: {{ row.pct }}%"></div></div>
+          <div class="hc-val">{{ row.pct }}%</div>
+        </div>
+      {% empty %}
+        <div class="empty">No draws in database yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <b>Note:</b> Analytics computed from stored historical draws. Frequency does not predict future outcomes — lottery draws are random.
+  </div>
+</section>
+
+<script>
+  (function () {
+    const selector = document.getElementById("analyticsGameSelector");
+    if (!selector) return;
+
+    selector.querySelectorAll(".game").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const game = btn.dataset.game;
+
+        selector.querySelectorAll(".game").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+
+        fetch("{% url 'analytics_api' %}?game=" + game)
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            document.getElementById("hotLabel").textContent  = data.label;
+            document.getElementById("freqLabel").textContent = data.label;
+
+            document.getElementById("analyticsHotList").innerHTML  = renderHot(data.hot);
+            document.getElementById("analyticsColdList").innerHTML = renderCold(data.cold);
+            document.getElementById("analyticsFreqList").innerHTML = renderHot(data.freq);
+          })
+          .catch(function (err) { console.error("Analytics fetch failed:", err); });
+      });
+    });
+
+    function renderHot(rows) {
+      if (!rows || !rows.length) {
+        return '<div class="empty">No draws in database yet.</div>';
+      }
+      return rows.map(function (r) {
+        return '<div class="hc-row">' +
+               '<div class="hc-num hot">' + r.number + '</div>' +
+               '<div class="hc-bar"><div class="hc-fill hot" style="width: ' + r.pct + '%"></div></div>' +
+               '<div class="hc-val">' + r.pct + '%</div>' +
+               '</div>';
+      }).join("");
+    }
+
+    function renderCold(rows) {
+      if (!rows || !rows.length) {
+        return '<div class="empty">No draws in database yet.</div>';
+      }
+      return rows.map(function (r) {
+        const val = (r.days_ago === null || r.days_ago === undefined)
+          ? "never"
+          : (r.days_ago + "d ago");
+        return '<div class="hc-row">' +
+               '<div class="hc-num cold">' + r.number + '</div>' +
+               '<div class="hc-bar"><div class="hc-fill cold" style="width: ' + r.pct + '%"></div></div>' +
+               '<div class="hc-val">' + val + '</div>' +
+               '</div>';
+      }).join("");
+    }
+  })();
+</script>
+{% endblock %}
