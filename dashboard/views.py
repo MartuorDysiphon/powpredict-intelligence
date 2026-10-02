@@ -14,7 +14,6 @@ from analytics.services import (
 def index(request):
     set_active(request, "dashboard")
 
-    # Default game for the dashboard cards
     game = "lotto"
     game_label = GAME_LABELS[game]
 
@@ -35,10 +34,9 @@ def index(request):
             "latest": latest,
         })
 
-    # Recent predictions (from DrawResult — the newest draws in the DB)
+    # Recent predictions 
     recent_draws = DrawResult.objects.order_by("-draw_date")[:8]
 
-    # Compute odd/even and low/high for the most recent Lotto draw
     latest_lotto = DrawResult.objects.filter(game="lotto").order_by("-draw_date").first()
     oe_stats = None
     lh_stats = None
@@ -47,7 +45,7 @@ def index(request):
         total = len(mains)
         odd = sum(1 for n in mains if n % 2)
         even = total - odd
-        half = 26  # Lotto max is 52
+        half = 26  
         lows = sum(1 for n in mains if n <= half)
         highs = total - lows
         oe_stats = {

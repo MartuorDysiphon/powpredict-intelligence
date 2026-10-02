@@ -1,9 +1,3 @@
-"""
-Deep statistical analysis over the DrawResult database.
-
-Every metric here is measured from real draws. None of them predict
-future outcomes. They describe the shape of what has already happened.
-"""
 from collections import Counter, defaultdict
 from datetime import date
 
@@ -19,7 +13,6 @@ GAMES_FOR_ANALYSIS = {
     "daily":          "Daily Lotto",
 }
 
-# How many recent draws to analyze when building the profile
 HISTORY_WINDOW = 500
 
 
@@ -29,11 +22,6 @@ def _mains(draw):
 
 
 def build_profile(game_key, window=HISTORY_WINDOW):
-    """
-    Compute a full statistical profile for a game from the last `window` draws.
-
-    Returns a dict with all metrics needed for scoring candidate sets.
-    """
     qs = DrawResult.objects.filter(game=game_key).order_by("-draw_date")
     if not qs.exists():
         return None
@@ -41,7 +29,6 @@ def build_profile(game_key, window=HISTORY_WINDOW):
     recent = list(qs[:window])
     full = list(qs)
 
-    # --- Determine the game's number range from the data itself ---
     max_number = 0
     for d in full:
         for n in _mains(d):
@@ -51,15 +38,13 @@ def build_profile(game_key, window=HISTORY_WINDOW):
     if max_number == 0:
         return None
 
-    # --- Frequency of each number across the window ---
+    # Frequency of each number across the window 
     freq = Counter()
     for d in recent:
         freq.update(_mains(d))
 
     total_draws = len(recent) or 1
 
-    # --- Recency-weighted frequency (recent draws weigh more) ---
-    # The most recent draw has weight 1.0, the one before 0.99, etc.
     recency = Counter()
     decay = 0.99
     for i, d in enumerate(recent):
@@ -67,16 +52,13 @@ def build_profile(game_key, window=HISTORY_WINDOW):
         for n in _mains(d):
             recency[n] += w
 
-    # --- Gap / overdue analysis ---
-    # For each number: how many draws ago did it last appear?
-    # (For full history, not just window.)
     last_seen_index = {}
     for i, d in enumerate(full):
         for n in _mains(d):
             if n not in last_seen_index:
                 last_seen_index[n] = i
 
-    # --- Pair co-occurrence ---
+    # Pair co-occurrence 
     pairs = Counter()
     for d in recent:
         nums = _mains(d)
@@ -84,7 +66,7 @@ def build_profile(game_key, window=HISTORY_WINDOW):
             for j in range(i + 1, len(nums)):
                 pairs[(nums[i], nums[j])] += 1
 
-    # --- Sum distribution ---
+    # Sum distribution
     sums = [sum(_mains(d)) for d in recent if _mains(d)]
     sum_mean = sum(sums) / len(sums) if sums else 0
     sum_std = (
@@ -92,7 +74,6 @@ def build_profile(game_key, window=HISTORY_WINDOW):
         if len(sums) > 1 else 0
     )
 
-    # --- Spread (max - min) distribution ---
     spreads = []
     for d in recent:
         m = _mains(d)
@@ -100,7 +81,7 @@ def build_profile(game_key, window=HISTORY_WINDOW):
             spreads.append(max(m) - min(m))
     spread_mean = sum(spreads) / len(spreads) if spreads else 0
 
-    # --- Odd/even distribution ---
+    # Odd/even distribution 
     odd_counts = Counter()
     for d in recent:
         m = _mains(d)
@@ -108,7 +89,6 @@ def build_profile(game_key, window=HISTORY_WINDOW):
             odd_counts[sum(1 for n in m if n % 2)] += 1
     odd_mode = odd_counts.most_common(1)[0][0] if odd_counts else 3
 
-    # --- Low/high distribution (low = first half of range) ---
     half = max_number // 2
     low_counts = Counter()
     for d in recent:
@@ -117,7 +97,7 @@ def build_profile(game_key, window=HISTORY_WINDOW):
             low_counts[sum(1 for n in m if n <= half)] += 1
     low_mode = low_counts.most_common(1)[0][0] if low_counts else 3
 
-    # --- Decade distribution (how many in 1-9, 10-19, ...) ---
+    # Decade distribution
     decade_dist = defaultdict(int)
     for d in recent:
         for n in _mains(d):
@@ -125,7 +105,7 @@ def build_profile(game_key, window=HISTORY_WINDOW):
     total_decade = sum(decade_dist.values()) or 1
     decade_pct = {k: v / total_decade for k, v in decade_dist.items()}
 
-    # --- Consecutive-number frequency ---
+    # Consecutive-number frequency
     consecutive_draws = 0
     for d in recent:
         m = sorted(_mains(d))
@@ -133,7 +113,7 @@ def build_profile(game_key, window=HISTORY_WINDOW):
             consecutive_draws += 1
     consecutive_rate = consecutive_draws / total_draws
 
-    # --- Repeats from previous draw ---
+    # Repeats from previous draw
     repeats = Counter()
     for i in range(len(recent) - 1):
         cur = set(_mains(recent[i]))
@@ -141,13 +121,13 @@ def build_profile(game_key, window=HISTORY_WINDOW):
         repeats[len(cur & prev)] += 1
     repeat_mode = repeats.most_common(1)[0][0] if repeats else 0
 
-    # --- Ending digit distribution ---
+    # Ending digit distribution
     ending_dist = Counter()
     for d in recent:
         for n in _mains(d):
             ending_dist[n % 10] += 1
 
-    # --- Prime/composite ratio ---
+    # Prime/composite ratio
     primes = _sieve(max_number)
     prime_ratios = []
     for d in recent:
@@ -156,7 +136,6 @@ def build_profile(game_key, window=HISTORY_WINDOW):
             prime_ratios.append(sum(1 for n in m if n in primes) / len(m))
     prime_mean = sum(prime_ratios) / len(prime_ratios) if prime_ratios else 0
 
-    # --- Day-of-week distribution (Wed vs Sat for Lotto) ---
     dow_freq = defaultdict(Counter)
     for d in recent:
         dow_freq[d.draw_date.weekday()].update(_mains(d))
@@ -198,14 +177,6 @@ def _sieve(n):
 
 
 def score_set(candidate, profile):
-    """
-    Score a candidate set (list of ints) against the profile.
-
-    Higher = better match to historical shape.
-    Score is a float, typically 0..100.
-
-    This does NOT measure probability. It measures resemblance.
-    """
     if not profile or not candidate:
         return 0.0
 
@@ -221,7 +192,7 @@ def score_set(candidate, profile):
     rec_score = sum(profile["recency"].get(n, 0) for n in candidate) / (len(candidate) * max_rec)
     score += rec_score * 20
 
-    # 3. Sum proximity (0..15 points) — Gaussian decay from historical mean
+    # 3. Sum proximity (0..15 points)
     total = sum(candidate)
     sd = profile["sum_std"] or 1
     diff = abs(total - profile["sum_mean"])
@@ -262,10 +233,6 @@ def score_set(candidate, profile):
 
 
 def analyze_pair_strength(candidate, profile):
-    """
-    Return average pair co-occurrence strength of a candidate set.
-    Used to boost sets whose internal pairs appear often historically.
-    """
     if not profile or len(candidate) < 2:
         return 0
     c = sorted(candidate)
@@ -277,10 +244,6 @@ def analyze_pair_strength(candidate, profile):
 
 
 def gap_score(candidate, profile):
-    """
-    How many of the candidate numbers are "overdue" (have not appeared
-    in the last N draws). Higher = more overdue picks.
-    """
     if not profile:
         return 0
     overdue_threshold = 20
@@ -292,7 +255,6 @@ def gap_score(candidate, profile):
 
 
 def summarize_profile(profile, top_n=8):
-    """Return human-readable top numbers by frequency and by recency."""
     if not profile:
         return {"hot": [], "recency_hot": [], "cold": [], "overdue": []}
 

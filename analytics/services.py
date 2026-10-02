@@ -13,9 +13,6 @@ GAME_LABELS = {
     "daily":          "Daily Lotto",
 }
 
-# Number of most recent draws used to compute hot/cold.
-# Smaller = more responsive to each new draw.
-# Larger  = more stable, requires more data.
 WINDOW = 30
 
 
@@ -64,7 +61,7 @@ def cold_numbers(game_key, limit=8, window=WINDOW):
     if not all_draws.exists():
         return []
 
-    # Determine the maximum number ever drawn for this game
+    # The maximum number
     max_n = 0
     for draw in all_draws.only("main_1", "main_2", "main_3",
                                 "main_4", "main_5", "main_6"):
@@ -82,7 +79,7 @@ def cold_numbers(game_key, limit=8, window=WINDOW):
         for n in _main_numbers(draw):
             seen_in_window[n] += 1
 
-    # Last-seen date across full history (not just window)
+    # Last seen date across full history
     last_seen = {}
     for draw in all_draws.order_by("-draw_date"):
         for n in _main_numbers(draw):
